@@ -3,12 +3,26 @@
 {% block content %}
 <div class="row">
     <div class="col-md-6">
-        <h2>Upload Excel File</h2>
-        <form id="excel-form" enctype="multipart/form-data">
+        <h2>Upload Task File</h2>
+        <form id="task-form" enctype="multipart/form-data">
             <div class="mb-3">
-                <input type="file" class="form-control" name="file" accept=".xlsx" required>
+                <label for="fileType" class="form-label">File Type</label>
+                <select class="form-select" id="fileType" name="fileType">
+                    <option value="excel">Excel (.xlsx)</option>
+                    <option value="word">Word Document (.docx)</option>
+                    <option value="gsheet">Google Sheet</option>
+                </select>
             </div>
-            <button type="submit" class="btn btn-primary">Upload Excel</button>
+            <div id="fileUploadSection" class="mb-3">
+                <label for="file" class="form-label">File</label>
+                <input type="file" class="form-control" id="file" name="file" accept=".xlsx,.docx">
+            </div>
+            <div id="gsheetSection" class="mb-3 d-none">
+                <label for="sheetId" class="form-label">Google Sheet ID</label>
+                <input type="text" class="form-control" id="sheetId" name="sheetId" placeholder="Enter Google Sheet ID">
+                <small class="text-muted">Find the ID in the sheet's URL between /d/ and /edit</small>
+            </div>
+            <button type="submit" class="btn btn-primary">Upload</button>
         </form>
 
         <h3 class="mt-4">Tasks</h3>
@@ -18,22 +32,22 @@
     </div>
 
     <div class="col-md-6">
-        <h2>Upload PDF Files for Comparison</h2>
-        <form id="pdf-form" enctype="multipart/form-data">
+        <h2>Document Analysis</h2>
+        <form id="document-form" enctype="multipart/form-data">
             <div class="mb-3">
-                <label for="pdf1" class="form-label">PDF 1</label>
-                <input type="file" class="form-control" id="pdf1" name="pdf1" accept=".pdf" required>
+                <label for="doc1" class="form-label">Document 1</label>
+                <input type="file" class="form-control" id="doc1" name="doc1" accept=".pdf,.docx" required>
             </div>
             <div class="mb-3">
-                <label for="pdf2" class="form-label">PDF 2</label>
-                <input type="file" class="form-control" id="pdf2" name="pdf2" accept=".pdf" required>
+                <label for="doc2" class="form-label">Document 2</label>
+                <input type="file" class="form-control" id="doc2" name="doc2" accept=".pdf,.docx" required>
             </div>
-            <button type="submit" class="btn btn-primary">Compare PDFs</button>
+            <button type="submit" class="btn btn-primary">Compare Documents</button>
         </form>
 
-        <h3 class="mt-4">PDF Analysis</h3>
+        <h3 class="mt-4">Analysis Result</h3>
         <div id="analysis-result" class="border p-3 bg-dark">
-            <!-- PDF analysis will be displayed here -->
+            <!-- Document analysis will be displayed here -->
         </div>
     </div>
 </div>
