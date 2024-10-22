@@ -15,19 +15,27 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(response => response.json())
         .then(data => {
-            taskList.innerHTML = '';
-            data.tasks.forEach(task => {
-                const li = document.createElement('li');
-                li.className = 'list-group-item';
-                li.textContent = `${task.description} (${task.email})`;
-                li.addEventListener('click', () => {
-                    emailGenerator.querySelector('input[name="task"]').value = task.description;
-                    emailGenerator.querySelector('input[name="email"]').value = task.email;
+            if (data.error) {
+                // Display error message
+                taskList.innerHTML = `<li class="list-group-item list-group-item-danger">${data.error}</li>`;
+            } else {
+                taskList.innerHTML = '';
+                data.tasks.forEach(task => {
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item';
+                    li.textContent = `${task.description} (${task.email})`;
+                    li.addEventListener('click', () => {
+                        emailGenerator.querySelector('input[name="task"]').value = task.description;
+                        emailGenerator.querySelector('input[name="email"]').value = task.email;
+                    });
+                    taskList.appendChild(li);
                 });
-                taskList.appendChild(li);
-            });
+            }
         })
-        .catch(error => console.error('Error:', error));
+        .catch(error => {
+            console.error('Error:', error);
+            taskList.innerHTML = `<li class="list-group-item list-group-item-danger">An error occurred while processing the Excel file.</li>`;
+        });
     });
 
     pdfForm.addEventListener('submit', function(e) {
@@ -41,7 +49,10 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             analysisResult.textContent = data.analysis;
         })
-        .catch(error => console.error('Error:', error));
+        .catch(error => {
+            console.error('Error:', error);
+            analysisResult.textContent = 'An error occurred while analyzing the PDF.';
+        });
     });
 
     emailGenerator.addEventListener('submit', function(e) {
@@ -59,6 +70,9 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             generatedEmail.textContent = data.email;
         })
-        .catch(error => console.error('Error:', error));
+        .catch(error => {
+            console.error('Error:', error);
+            generatedEmail.textContent = 'An error occurred while generating the email.';
+        });
     });
 });

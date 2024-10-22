@@ -8,10 +8,35 @@ def process_excel(file, add_to_db=True):
     workbook = openpyxl.load_workbook(file)
     sheet = workbook.active
     tasks = []
-    for row in sheet.iter_rows(min_row=2, values_only=True):
-        if len(row) >= 2 and row[0] and row[1]:  # Ensure we have both task description and email
-            task_description, email = row[0], row[1]
-            tasks.append({'description': task_description, 'email': email})
+    
+    # Get all rows including the header
+    rows = list(sheet.iter_rows(min_row=1, values_only=True))
+    
+    if not rows:
+        return []
+    
+    # Find indices of 'Task' and 'E-mail' columns
+    header = rows[0]
+    task_index = None
+    email_index = None
+    
+    for i, cell in enumerate(header):
+        if cell == 'Task':
+            task_index = i
+        elif cell == 'E-mail':
+            email_index = i
+    
+    # Check if required columns are found
+    if task_index is None or email_index is None:
+        raise ValueError("Required columns 'Task' and 'E-mail' not found in the Excel file.")
+    
+    # Process data rows
+    for row in rows[1:]:
+        if len(row) > max(task_index, email_index):
+            task_description = row[task_index]
+            email = row[email_index]
+            if task_description and email:
+                tasks.append({'description': task_description, 'email': email})
     
     if add_to_db:
         try:

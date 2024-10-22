@@ -17,8 +17,11 @@ def upload_excel():
     if file.filename == '':
         return jsonify({'error': 'No selected file'}), 400
     if file and file.filename.endswith('.xlsx'):
-        tasks = process_excel(file, add_to_db=False)
-        return jsonify({'tasks': tasks})
+        try:
+            tasks = process_excel(file, add_to_db=False)
+            return jsonify({'tasks': tasks})
+        except ValueError as e:
+            return jsonify({'error': str(e)}), 400
     return jsonify({'error': 'Invalid file format'}), 400
 
 @main_bp.route('/upload_pdf', methods=['POST'])
