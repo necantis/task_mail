@@ -23,10 +23,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 data.tasks.forEach(task => {
                     const li = document.createElement('li');
                     li.className = 'list-group-item';
-                    li.textContent = `${task.description} (${task.email})`;
+                    li.textContent = `${task.description} (Email: ${task.email}, Recipient: ${task.recipient})`;
                     li.addEventListener('click', () => {
                         emailGenerator.querySelector('input[name="task"]').value = task.description;
                         emailGenerator.querySelector('input[name="email"]').value = task.email;
+                        emailGenerator.querySelector('input[name="recipient"]').value = task.recipient;
                     });
                     taskList.appendChild(li);
                 });
@@ -41,6 +42,10 @@ document.addEventListener('DOMContentLoaded', function() {
     pdfForm.addEventListener('submit', function(e) {
         e.preventDefault();
         const formData = new FormData(pdfForm);
+        const files = pdfForm.querySelector('input[type="file"]').files;
+        for (let i = 0; i < files.length; i++) {
+            formData.append('files', files[i]);
+        }
         fetch('/upload_pdf', {
             method: 'POST',
             body: formData
@@ -51,7 +56,7 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .catch(error => {
             console.error('Error:', error);
-            analysisResult.textContent = 'An error occurred while analyzing the PDF.';
+            analysisResult.textContent = 'An error occurred while analyzing the PDFs.';
         });
     });
 
@@ -59,12 +64,13 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault();
         const task = emailGenerator.querySelector('input[name="task"]').value;
         const email = emailGenerator.querySelector('input[name="email"]').value;
+        const recipient = emailGenerator.querySelector('input[name="recipient"]').value;
         fetch('/generate_email', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ task, email }),
+            body: JSON.stringify({ task, email, recipient }),
         })
         .then(response => response.json())
         .then(data => {

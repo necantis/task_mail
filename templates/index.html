@@ -18,12 +18,12 @@
     </div>
 
     <div class="col-md-6">
-        <h2>Upload PDF File</h2>
+        <h2>Upload PDF Files</h2>
         <form id="pdf-form" enctype="multipart/form-data">
             <div class="mb-3">
-                <input type="file" class="form-control" name="file" accept=".pdf" required>
+                <input type="file" class="form-control" name="files" accept=".pdf" multiple required>
             </div>
-            <button type="submit" class="btn btn-primary">Upload PDF</button>
+            <button type="submit" class="btn btn-primary">Upload PDFs</button>
         </form>
 
         <h3 class="mt-4">PDF Analysis</h3>
@@ -42,6 +42,9 @@
             </div>
             <div class="mb-3">
                 <input type="email" class="form-control" name="email" placeholder="Email" required>
+            </div>
+            <div class="mb-3">
+                <input type="text" class="form-control" name="recipient" placeholder="Recipient" required>
             </div>
             <button type="submit" class="btn btn-primary">Generate Email</button>
         </form>

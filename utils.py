@@ -15,33 +15,37 @@ def process_excel(file, add_to_db=True):
     if not rows:
         return []
     
-    # Find indices of 'Task' and 'E-mail' columns
+    # Find indices of 'Task', 'E-mail', and 'Recipient' columns
     header = rows[0]
     task_index = None
     email_index = None
+    recipient_index = None
     
     for i, cell in enumerate(header):
         if cell == 'Task':
             task_index = i
         elif cell == 'E-mail':
             email_index = i
+        elif cell == 'Recipient':
+            recipient_index = i
     
     # Check if required columns are found
-    if task_index is None or email_index is None:
-        raise ValueError("Required columns 'Task' and 'E-mail' not found in the Excel file.")
+    if task_index is None or email_index is None or recipient_index is None:
+        raise ValueError("Required columns 'Task', 'E-mail', and 'Recipient' not found in the Excel file.")
     
     # Process data rows
     for row in rows[1:]:
-        if len(row) > max(task_index, email_index):
+        if len(row) > max(task_index, email_index, recipient_index):
             task_description = row[task_index]
             email = row[email_index]
-            if task_description and email:
-                tasks.append({'description': task_description, 'email': email})
+            recipient = row[recipient_index]
+            if task_description and email and recipient:
+                tasks.append({'description': task_description, 'email': email, 'recipient': recipient})
     
     if add_to_db:
         try:
             for task in tasks:
-                db_task = Task(description=task['description'], email=task['email'])
+                db_task = Task(description=task['description'], email=task['email'], recipient=task['recipient'])
                 db.session.add(db_task)
             db.session.commit()
         except Exception as e:
@@ -51,31 +55,37 @@ def process_excel(file, add_to_db=True):
     
     return tasks
 
-def analyze_pdf(file):
-    reader = PyPDF2.PdfReader(file)
-    text = ""
-    for page in reader.pages:
-        text += page.extract_text()
+def analyze_pdf(files):
+    analyses = []
+    texts = []
     
-    prompt = f"Analyze the following text for inconsistencies, logical fallacies, and unsupported statements:\n\n{text[:4000]}"
+    for file in files:
+        reader = PyPDF2.PdfReader(file)
+        text = ""
+        for page in reader.pages:
+            text += page.extract_text()
+        texts.append(text)
+    
+    combined_text = "\n\n".join(texts)
+    prompt = f"Analyze the following texts for inconsistencies, logical fallacies, and unsupported statements. Compare the documents and highlight any discrepancies between them:\n\n{combined_text[:8000]}"
     analysis = send_openai_request(prompt)
     
-    pdf_analysis = PDFAnalysis(filename=file.filename, analysis=analysis)
+    pdf_analysis = PDFAnalysis(filename=", ".join([f.filename for f in files]), analysis=analysis)
     db.session.add(pdf_analysis)
     db.session.commit()
     
     return analysis
 
-def generate_email(task, email):
-    prompt = f"Generate a professional email about the following task: {task}. The email should be sent to: {email}"
+def generate_email(task, email, recipient):
+    prompt = f"Generate a professional email about the following task: {task}. The email should be sent to: {email}. The recipient is: {recipient}"
     generated_email = send_openai_request(prompt)
     
-    task_obj = Task.query.filter_by(description=task, email=email).first()
+    task_obj = Task.query.filter_by(description=task, email=email, recipient=recipient).first()
     if task_obj:
         email_obj = GeneratedEmail(task_id=task_obj.id, content=generated_email)
         db.session.add(email_obj)
         db.session.commit()
     else:
-        print(f"Task not found for description: {task} and email: {email}")
+        print(f"Task not found for description: {task}, email: {email}, and recipient: {recipient}")
     
     return generated_email

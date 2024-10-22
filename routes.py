@@ -26,28 +26,32 @@ def upload_excel():
 
 @main_bp.route('/upload_pdf', methods=['POST'])
 def upload_pdf():
-    if 'file' not in request.files:
+    if 'files' not in request.files:
         return jsonify({'error': 'No file part'}), 400
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
-    if file and file.filename.endswith('.pdf'):
-        analysis = analyze_pdf(file)
-        return jsonify({'analysis': analysis})
-    return jsonify({'error': 'Invalid file format'}), 400
+    files = request.files.getlist('files')
+    if not files or files[0].filename == '':
+        return jsonify({'error': 'No selected files'}), 400
+    
+    pdf_files = [file for file in files if file.filename.endswith('.pdf')]
+    if not pdf_files:
+        return jsonify({'error': 'No valid PDF files found'}), 400
+    
+    analysis = analyze_pdf(pdf_files)
+    return jsonify({'analysis': analysis})
 
 @main_bp.route('/generate_email', methods=['POST'])
 def generate_email_route():
     data = request.json
     task = data.get('task')
     email = data.get('email')
-    if not task or not email:
-        return jsonify({'error': 'Missing task or email'}), 400
+    recipient = data.get('recipient')
+    if not task or not email or not recipient:
+        return jsonify({'error': 'Missing task, email, or recipient'}), 400
     
     # Add the selected task to the database
-    new_task = Task(description=task, email=email)
+    new_task = Task(description=task, email=email, recipient=recipient)
     db.session.add(new_task)
     db.session.commit()
     
-    generated_email = generate_email(task, email)
+    generated_email = generate_email(task, email, recipient)
     return jsonify({'email': generated_email})
