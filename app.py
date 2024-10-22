@@ -14,7 +14,8 @@ def create_app():
 
     with app.app_context():
         from models import Task, PDFAnalysis, GeneratedEmail
-        db.create_all()
+        db.drop_all()  # Drop all existing tables
+        db.create_all()  # Recreate all tables with the latest schema
 
     from routes import main_bp
     app.register_blueprint(main_bp)
