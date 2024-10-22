@@ -1,0 +1,12 @@
+/* Custom styles */
+.task-list {
+    cursor: pointer;
+}
+
+.task-list li:hover {
+    background-color: var(--bs-gray-700);
+}
+
+#generated-email {
+    white-space: pre-wrap;
+}
