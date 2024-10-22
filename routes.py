@@ -1,4 +1,5 @@
 from flask import Blueprint, render_template, request, jsonify
+from flask_login import login_required, current_user
 from utils import process_excel, analyze_pdf, generate_email
 from models import Task
 from extensions import db
@@ -6,10 +7,12 @@ from extensions import db
 main_bp = Blueprint('main', __name__)
 
 @main_bp.route('/')
+@login_required
 def index():
     return render_template('index.html')
 
 @main_bp.route('/upload_excel', methods=['POST'])
+@login_required
 def upload_excel():
     if 'file' not in request.files:
         return jsonify({'error': 'No file part'}), 400
@@ -25,6 +28,7 @@ def upload_excel():
     return jsonify({'error': 'Invalid file format'}), 400
 
 @main_bp.route('/upload_pdf', methods=['POST'])
+@login_required
 def upload_pdf():
     if 'pdf1' not in request.files or 'pdf2' not in request.files:
         return jsonify({'error': 'Both PDF files are required'}), 400
@@ -38,6 +42,7 @@ def upload_pdf():
     return jsonify({'error': 'Invalid file format'}), 400
 
 @main_bp.route('/generate_email', methods=['POST'])
+@login_required
 def generate_email_route():
     data = request.json
     task = data.get('task')
@@ -46,8 +51,7 @@ def generate_email_route():
     if not task or not email or not recipient:
         return jsonify({'error': 'Missing task, email, or recipient'}), 400
     
-    # Add the selected task to the database
-    new_task = Task(description=task, email=email, recipient=recipient)
+    new_task = Task(description=task, email=email, recipient=recipient, user_id=current_user.id)
     db.session.add(new_task)
     db.session.commit()
     
