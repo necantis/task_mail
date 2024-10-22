@@ -1,8 +1,10 @@
 from flask import Blueprint, render_template, request, jsonify
 from flask_login import login_required, current_user
 from utils import process_excel, process_word_document, process_google_sheet, analyze_documents, generate_email
-from models import Task
+from models import Task, GeneratedEmail, EmailEvent
 from extensions import db
+from sqlalchemy import func
+from datetime import datetime, timedelta
 
 main_bp = Blueprint('main', __name__)
 
@@ -11,85 +13,66 @@ main_bp = Blueprint('main', __name__)
 def index():
     return render_template('index.html')
 
-@main_bp.route('/upload_excel', methods=['POST'])
+@main_bp.route('/dashboard')
 @login_required
-def upload_excel():
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file part'}), 400
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
-    if file and file.filename.endswith('.xlsx'):
-        try:
-            tasks = process_excel(file, add_to_db=False)
-            return jsonify({'tasks': tasks})
-        except ValueError as e:
-            return jsonify({'error': str(e)}), 400
-    return jsonify({'error': 'Invalid file format'}), 400
-
-@main_bp.route('/upload_word', methods=['POST'])
-@login_required
-def upload_word():
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file part'}), 400
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
-    if file and file.filename.endswith('.docx'):
-        try:
-            tasks = process_word_document(file, add_to_db=False)
-            return jsonify({'tasks': tasks})
-        except ValueError as e:
-            return jsonify({'error': str(e)}), 400
-    return jsonify({'error': 'Invalid file format'}), 400
-
-@main_bp.route('/upload_gsheet', methods=['POST'])
-@login_required
-def upload_gsheet():
-    sheet_id = request.form.get('sheetId')
-    if not sheet_id:
-        return jsonify({'error': 'No Google Sheet ID provided'}), 400
-    try:
-        tasks = process_google_sheet(sheet_id, add_to_db=False)
-        return jsonify({'tasks': tasks})
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 400
-
-@main_bp.route('/analyze_documents', methods=['POST'])
-@login_required
-def analyze_documents_route():
-    if 'doc1' not in request.files or 'doc2' not in request.files:
-        return jsonify({'error': 'Both documents are required'}), 400
-    doc1 = request.files['doc1']
-    doc2 = request.files['doc2']
+def dashboard():
+    # Get overall statistics
+    total_emails = GeneratedEmail.query.filter_by(user_id=current_user.id).count()
+    sent_emails = GeneratedEmail.query.filter_by(user_id=current_user.id, status='sent').count()
+    total_opens = db.session.query(func.sum(GeneratedEmail.opens))\
+        .filter_by(user_id=current_user.id).scalar() or 0
+    total_clicks = db.session.query(func.sum(GeneratedEmail.clicks))\
+        .filter_by(user_id=current_user.id).scalar() or 0
+    total_replies = db.session.query(func.sum(GeneratedEmail.replies))\
+        .filter_by(user_id=current_user.id).scalar() or 0
     
-    if doc1.filename == '' or doc2.filename == '':
-        return jsonify({'error': 'Both documents must be selected'}), 400
-        
-    allowed_extensions = {'.pdf', '.docx'}
-    if not (any(doc1.filename.endswith(ext) for ext in allowed_extensions) and 
-            any(doc2.filename.endswith(ext) for ext in allowed_extensions)):
-        return jsonify({'error': 'Invalid file format. Only PDF and DOCX files are supported.'}), 400
-        
-    try:
-        analysis = analyze_documents([doc1, doc2])
-        return jsonify({'analysis': analysis})
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 400
-
-@main_bp.route('/generate_email', methods=['POST'])
-@login_required
-def generate_email_route():
-    data = request.json
-    task = data.get('task')
-    email = data.get('email')
-    recipient = data.get('recipient')
-    if not task or not email or not recipient:
-        return jsonify({'error': 'Missing task, email, or recipient'}), 400
+    # Get recent emails (last 30 days)
+    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+    recent_emails = GeneratedEmail.query\
+        .filter(GeneratedEmail.user_id == current_user.id,
+                GeneratedEmail.created_at >= thirty_days_ago)\
+        .order_by(GeneratedEmail.created_at.desc())\
+        .all()
     
-    new_task = Task(description=task, email=email, recipient=recipient, user_id=current_user.id)
-    db.session.add(new_task)
+    # Calculate engagement rates
+    open_rate = (total_opens / sent_emails * 100) if sent_emails > 0 else 0
+    click_rate = (total_clicks / sent_emails * 100) if sent_emails > 0 else 0
+    
+    return render_template('dashboard.html',
+                         total_emails=total_emails,
+                         sent_emails=sent_emails,
+                         total_opens=total_opens,
+                         total_clicks=total_clicks,
+                         total_replies=total_replies,
+                         open_rate=round(open_rate, 2),
+                         click_rate=round(click_rate, 2),
+                         recent_emails=recent_emails)
+
+@main_bp.route('/track_email_event/<int:email_id>/<event_type>')
+def track_email_event(email_id, event_type):
+    if event_type not in ['open', 'click', 'reply', 'bounce']:
+        return jsonify({'error': 'Invalid event type'}), 400
+        
+    email = GeneratedEmail.query.get_or_404(email_id)
+    
+    # Record the event
+    event = EmailEvent(
+        email_id=email_id,
+        event_type=event_type,
+        event_metadata=request.args.to_dict()  # Using the renamed column
+    )
+    db.session.add(event)
+    
+    # Update email metrics
+    if event_type == 'open':
+        email.opens += 1
+    elif event_type == 'click':
+        email.clicks += 1
+    elif event_type == 'reply':
+        email.replies += 1
+    elif event_type == 'bounce':
+        email.bounces += 1
+    
     db.session.commit()
     
-    generated_email = generate_email(task, email, recipient)
-    return jsonify({'email': generated_email})
+    return '', 204  # No content response

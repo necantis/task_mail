@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Total Emails</h5>
+                    <p class="card-text display-6">{{ total_emails }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Sent Emails</h5>
+                    <p class="card-text display-6">{{ sent_emails }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Open Rate</h5>
+                    <p class="card-text display-6">{{ open_rate }}%</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Click Rate</h5>
+                    <p class="card-text display-6">{{ click_rate }}%</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Engagement Chart -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Email Engagement Overview</h5>
+                    <canvas id="engagementChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Emails -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Recent Emails (Last 30 Days)</h5>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Subject</th>
+                                    <th>Status</th>
+                                    <th>Sent Date</th>
+                                    <th>Opens</th>
+                                    <th>Clicks</th>
+                                    <th>Replies</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for email in recent_emails %}
+                                <tr>
+                                    <td>{{ email.subject or 'No Subject' }}</td>
+                                    <td>
+                                        <span class="badge {% if email.status == 'sent' %}bg-success{% elif email.status == 'failed' %}bg-danger{% else %}bg-secondary{% endif %}">
+                                            {{ email.status }}
+                                        </span>
+                                    </td>
+                                    <td>{{ email.sent_at.strftime('%Y-%m-%d %H:%M') if email.sent_at else 'Not sent' }}</td>
+                                    <td>{{ email.opens }}</td>
+                                    <td>{{ email.clicks }}</td>
+                                    <td>{{ email.replies }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Data for the engagement chart
+    const ctx = document.getElementById('engagementChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Opens', 'Clicks', 'Replies'],
+            datasets: [{
+                label: 'Email Engagement',
+                data: [{{ total_opens }}, {{ total_clicks }}, {{ total_replies|default(0) }}],
+                backgroundColor: [
+                    'rgba(75, 192, 192, 0.2)',
+                    'rgba(54, 162, 235, 0.2)',
+                    'rgba(153, 102, 255, 0.2)'
+                ],
+                borderColor: [
+                    'rgba(75, 192, 192, 1)',
+                    'rgba(54, 162, 235, 1)',
+                    'rgba(153, 102, 255, 1)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}
