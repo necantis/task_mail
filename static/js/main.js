@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', function() {
             taskList.innerHTML = '';
             data.tasks.forEach(task => {
                 const li = document.createElement('li');
+                li.className = 'list-group-item';
                 li.textContent = `${task.description} (${task.email})`;
                 li.addEventListener('click', () => {
                     emailGenerator.querySelector('input[name="task"]').value = task.description;

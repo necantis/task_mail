@@ -4,23 +4,25 @@ from extensions import db
 from models import Task, PDFAnalysis, GeneratedEmail
 from chat_request import send_openai_request
 
-def process_excel(file):
+def process_excel(file, add_to_db=True):
     workbook = openpyxl.load_workbook(file)
     sheet = workbook.active
     tasks = []
     for row in sheet.iter_rows(min_row=2, values_only=True):
         if len(row) >= 2 and row[0] and row[1]:  # Ensure we have both task description and email
             task_description, email = row[0], row[1]
-            task = Task(description=task_description, email=email)
-            db.session.add(task)
             tasks.append({'description': task_description, 'email': email})
     
-    try:
-        db.session.commit()
-    except Exception as e:
-        db.session.rollback()
-        print(f"Error saving tasks to database: {str(e)}")
-        return []
+    if add_to_db:
+        try:
+            for task in tasks:
+                db_task = Task(description=task['description'], email=task['email'])
+                db.session.add(db_task)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error saving tasks to database: {str(e)}")
+            return []
     
     return tasks
 
