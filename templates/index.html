@@ -18,12 +18,17 @@
     </div>
 
     <div class="col-md-6">
-        <h2>Upload PDF Files</h2>
+        <h2>Upload PDF Files for Comparison</h2>
         <form id="pdf-form" enctype="multipart/form-data">
             <div class="mb-3">
-                <input type="file" class="form-control" name="files" accept=".pdf" multiple required>
+                <label for="pdf1" class="form-label">PDF 1</label>
+                <input type="file" class="form-control" id="pdf1" name="pdf1" accept=".pdf" required>
             </div>
-            <button type="submit" class="btn btn-primary">Upload PDFs</button>
+            <div class="mb-3">
+                <label for="pdf2" class="form-label">PDF 2</label>
+                <input type="file" class="form-control" id="pdf2" name="pdf2" accept=".pdf" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Compare PDFs</button>
         </form>
 
         <h3 class="mt-4">PDF Analysis</h3>

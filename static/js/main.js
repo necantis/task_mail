@@ -16,7 +16,6 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.error) {
-                // Display error message
                 taskList.innerHTML = `<li class="list-group-item list-group-item-danger">${data.error}</li>`;
             } else {
                 taskList.innerHTML = '';
@@ -42,17 +41,17 @@ document.addEventListener('DOMContentLoaded', function() {
     pdfForm.addEventListener('submit', function(e) {
         e.preventDefault();
         const formData = new FormData(pdfForm);
-        const files = pdfForm.querySelector('input[type="file"]').files;
-        for (let i = 0; i < files.length; i++) {
-            formData.append('files', files[i]);
-        }
         fetch('/upload_pdf', {
             method: 'POST',
             body: formData
         })
         .then(response => response.json())
         .then(data => {
-            analysisResult.textContent = data.analysis;
+            if (data.error) {
+                analysisResult.textContent = data.error;
+            } else {
+                analysisResult.textContent = data.analysis;
+            }
         })
         .catch(error => {
             console.error('Error:', error);
@@ -74,7 +73,11 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(response => response.json())
         .then(data => {
-            generatedEmail.textContent = data.email;
+            if (data.error) {
+                generatedEmail.textContent = data.error;
+            } else {
+                generatedEmail.textContent = data.email;
+            }
         })
         .catch(error => {
             console.error('Error:', error);

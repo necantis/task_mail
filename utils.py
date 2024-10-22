@@ -56,9 +56,10 @@ def process_excel(file, add_to_db=True):
     return tasks
 
 def analyze_pdf(files):
-    analyses = []
-    texts = []
+    if len(files) != 2:
+        raise ValueError("Exactly two PDF files are required for comparison.")
     
+    texts = []
     for file in files:
         reader = PyPDF2.PdfReader(file)
         text = ""
@@ -66,18 +67,32 @@ def analyze_pdf(files):
             text += page.extract_text()
         texts.append(text)
     
-    combined_text = "\n\n".join(texts)
-    prompt = f"Analyze the following texts for inconsistencies, logical fallacies, and unsupported statements. Compare the documents and highlight any discrepancies between them:\n\n{combined_text[:8000]}"
+    prompt = f"""Analyze and compare the following two PDF documents for inconsistencies, logical fallacies, and unsupported statements. Highlight any discrepancies between them:
+
+Document 1:
+{texts[0][:4000]}
+
+Document 2:
+{texts[1][:4000]}
+
+Provide a detailed analysis of the differences, inconsistencies, and potential issues found between these two documents."""
+
     analysis = send_openai_request(prompt)
     
-    pdf_analysis = PDFAnalysis(filename=", ".join([f.filename for f in files]), analysis=analysis)
+    pdf_analysis = PDFAnalysis(filename=f"{files[0].filename}, {files[1].filename}", analysis=analysis)
     db.session.add(pdf_analysis)
     db.session.commit()
     
     return analysis
 
 def generate_email(task, email, recipient):
-    prompt = f"Generate a professional email about the following task: {task}. The email should be sent to: {email}. The recipient is: {recipient}"
+    prompt = f"""Generate a professional email with the following details:
+Task: {task}
+Recipient: {recipient}
+Recipient's Email: {email}
+
+The email should be formal, clear, and concise. Include a brief introduction, details about the task, and a polite closing."""
+
     generated_email = send_openai_request(prompt)
     
     task_obj = Task.query.filter_by(description=task, email=email, recipient=recipient).first()

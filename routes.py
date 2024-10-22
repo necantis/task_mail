@@ -26,18 +26,16 @@ def upload_excel():
 
 @main_bp.route('/upload_pdf', methods=['POST'])
 def upload_pdf():
-    if 'files' not in request.files:
-        return jsonify({'error': 'No file part'}), 400
-    files = request.files.getlist('files')
-    if not files or files[0].filename == '':
-        return jsonify({'error': 'No selected files'}), 400
-    
-    pdf_files = [file for file in files if file.filename.endswith('.pdf')]
-    if not pdf_files:
-        return jsonify({'error': 'No valid PDF files found'}), 400
-    
-    analysis = analyze_pdf(pdf_files)
-    return jsonify({'analysis': analysis})
+    if 'pdf1' not in request.files or 'pdf2' not in request.files:
+        return jsonify({'error': 'Both PDF files are required'}), 400
+    pdf1 = request.files['pdf1']
+    pdf2 = request.files['pdf2']
+    if pdf1.filename == '' or pdf2.filename == '':
+        return jsonify({'error': 'Both PDF files must be selected'}), 400
+    if pdf1.filename.endswith('.pdf') and pdf2.filename.endswith('.pdf'):
+        analysis = analyze_pdf([pdf1, pdf2])
+        return jsonify({'analysis': analysis})
+    return jsonify({'error': 'Invalid file format'}), 400
 
 @main_bp.route('/generate_email', methods=['POST'])
 def generate_email_route():
