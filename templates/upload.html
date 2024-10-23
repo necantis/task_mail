@@ -43,7 +43,7 @@
                         <label for="file" class="form-label">Choose file</label>
                         <input type="file" class="form-control" id="file" name="file" accept=".xlsx,.xls,.pdf">
                     </div>
-                    <button type="submit" class="btn btn-primary">Upload and Process</button>
+                    <button type="submit" class="btn btn-primary" id="submitButton">Upload and Process</button>
                 </form>
             </div>
         </div>
@@ -57,157 +57,200 @@
     <script>
         document.getElementById('uploadForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            
             const formData = new FormData();
             const fileInput = document.getElementById('file');
+            const submitButton = document.getElementById('submitButton');
             const resultDiv = document.getElementById('result');
             
+            // Validate file input
             if (!fileInput.files || !fileInput.files[0]) {
                 resultDiv.innerHTML = `<div class="alert alert-danger">Please select a file first</div>`;
                 return;
             }
             
+            // Validate file type
+            const fileName = fileInput.files[0].name.toLowerCase();
+            const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
+            const isPDF = fileName.endsWith('.pdf');
+            
+            if (!isExcel && !isPDF) {
+                resultDiv.innerHTML = `<div class="alert alert-danger">Please select a valid Excel (.xlsx, .xls) or PDF file</div>`;
+                return;
+            }
+            
             formData.append('file', fileInput.files[0]);
             
+            // Disable form while processing
+            submitButton.disabled = true;
+            fileInput.disabled = true;
+            submitButton.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...`;
+            
             try {
-                resultDiv.innerHTML = `<div class="alert alert-info">Processing file...</div>`;
+                resultDiv.innerHTML = `<div class="alert alert-info">
+                    <div class="d-flex align-items-center">
+                        <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                        <div>Processing file... This may take a few moments.</div>
+                    </div>
+                </div>`;
                 
                 const response = await fetch('/upload', {
                     method: 'POST',
                     body: formData
                 });
                 
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
                 const data = await response.json();
-                if (response.ok) {
-                    if (data.type === 'pdf_analysis') {
-                        // Display PDF analysis results
-                        let html = `
-                            <div class="card">
-                                <div class="card-body">
-                                    <h5 class="card-title">PDF Analysis Results</h5>
-                                    
-                                    <div class="accordion" id="analysisAccordion">
-                                        <div class="accordion-item">
-                                            <h2 class="accordion-header">
-                                                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#inconsistenciesCollapse">
-                                                    Inconsistencies (${data.results.inconsistencies.length})
-                                                </button>
-                                            </h2>
-                                            <div id="inconsistenciesCollapse" class="accordion-collapse collapse show" data-bs-parent="#analysisAccordion">
-                                                <div class="accordion-body">
+                
+                if (data.type === 'pdf_analysis') {
+                    // Display PDF analysis results
+                    let html = `
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">PDF Analysis Results</h5>
+                                
+                                <div class="accordion" id="analysisAccordion">
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header">
+                                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#inconsistenciesCollapse">
+                                                Inconsistencies (${data.results.inconsistencies.length})
+                                            </button>
+                                        </h2>
+                                        <div id="inconsistenciesCollapse" class="accordion-collapse collapse show" data-bs-parent="#analysisAccordion">
+                                            <div class="accordion-body">
+                                                ${data.results.inconsistencies.length > 0 ? `
                                                     <ul class="list-group list-group-flush">
                                                         ${data.results.inconsistencies.map(item => `
                                                             <li class="list-group-item">${item}</li>
                                                         `).join('')}
                                                     </ul>
-                                                </div>
+                                                ` : '<p class="text-muted">No inconsistencies found.</p>'}
                                             </div>
                                         </div>
-                                        
-                                        <div class="accordion-item">
-                                            <h2 class="accordion-header">
-                                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#fallaciesCollapse">
-                                                    Logical Fallacies (${data.results.logical_fallacies.length})
-                                                </button>
-                                            </h2>
-                                            <div id="fallaciesCollapse" class="accordion-collapse collapse" data-bs-parent="#analysisAccordion">
-                                                <div class="accordion-body">
+                                    </div>
+                                    
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header">
+                                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#fallaciesCollapse">
+                                                Logical Fallacies (${data.results.logical_fallacies.length})
+                                            </button>
+                                        </h2>
+                                        <div id="fallaciesCollapse" class="accordion-collapse collapse" data-bs-parent="#analysisAccordion">
+                                            <div class="accordion-body">
+                                                ${data.results.logical_fallacies.length > 0 ? `
                                                     <ul class="list-group list-group-flush">
                                                         ${data.results.logical_fallacies.map(item => `
                                                             <li class="list-group-item">${item}</li>
                                                         `).join('')}
                                                     </ul>
-                                                </div>
+                                                ` : '<p class="text-muted">No logical fallacies found.</p>'}
                                             </div>
                                         </div>
-                                        
-                                        <div class="accordion-item">
-                                            <h2 class="accordion-header">
-                                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#statementsCollapse">
-                                                    Unsupported Statements (${data.results.unsupported_statements.length})
-                                                </button>
-                                            </h2>
-                                            <div id="statementsCollapse" class="accordion-collapse collapse" data-bs-parent="#analysisAccordion">
-                                                <div class="accordion-body">
+                                    </div>
+                                    
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header">
+                                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#statementsCollapse">
+                                                Unsupported Statements (${data.results.unsupported_statements.length})
+                                            </button>
+                                        </h2>
+                                        <div id="statementsCollapse" class="accordion-collapse collapse" data-bs-parent="#analysisAccordion">
+                                            <div class="accordion-body">
+                                                ${data.results.unsupported_statements.length > 0 ? `
                                                     <ul class="list-group list-group-flush">
                                                         ${data.results.unsupported_statements.map(item => `
                                                             <li class="list-group-item">${item}</li>
                                                         `).join('')}
                                                     </ul>
-                                                </div>
+                                                ` : '<p class="text-muted">No unsupported statements found.</p>'}
                                             </div>
                                         </div>
-                                        
-                                        <div class="accordion-item">
-                                            <h2 class="accordion-header">
-                                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#suggestionsCollapse">
-                                                    Suggestions (${data.results.suggestions.length})
-                                                </button>
-                                            </h2>
-                                            <div id="suggestionsCollapse" class="accordion-collapse collapse" data-bs-parent="#analysisAccordion">
-                                                <div class="accordion-body">
+                                    </div>
+                                    
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header">
+                                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#suggestionsCollapse">
+                                                Suggestions (${data.results.suggestions.length})
+                                            </button>
+                                        </h2>
+                                        <div id="suggestionsCollapse" class="accordion-collapse collapse" data-bs-parent="#analysisAccordion">
+                                            <div class="accordion-body">
+                                                ${data.results.suggestions.length > 0 ? `
                                                     <ul class="list-group list-group-flush">
                                                         ${data.results.suggestions.map(item => `
                                                             <li class="list-group-item">${item}</li>
                                                         `).join('')}
                                                     </ul>
-                                                </div>
+                                                ` : '<p class="text-muted">No suggestions available.</p>'}
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                        `;
-                        resultDiv.innerHTML = html;
-                    } else {
-                        // Display Excel processing results
-                        let html = `
-                            <div class="card">
-                                <div class="card-body">
-                                    <h5 class="card-title">File Analysis</h5>
-                                    <p>Valid Tasks: ${data.rows}</p>
-                                    ${data.filtered_rows > 0 ? 
-                                        `<p class="text-warning">Filtered out ${data.filtered_rows} row(s) with empty tasks</p>` : 
-                                        ''
-                                    }
-                                    
-                                    <h6 class="mt-4">Generated Emails:</h6>
-                                    <div class="accordion" id="emailAccordion">
-                                        ${data.generated_emails.map((item, index) => `
-                                            <div class="accordion-item">
-                                                <h2 class="accordion-header">
-                                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#email${index}">
-                                                        Task: ${item.task.substring(0, 50)}...
-                                                    </button>
-                                                </h2>
-                                                <div id="email${index}" class="accordion-collapse collapse" data-bs-parent="#emailAccordion">
-                                                    <div class="accordion-body">
+                        </div>
+                    `;
+                    resultDiv.innerHTML = html;
+                } else {
+                    // Display Excel processing results
+                    let html = `
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">File Analysis</h5>
+                                <p>Valid Tasks: ${data.rows}</p>
+                                ${data.filtered_rows > 0 ? 
+                                    `<p class="text-warning">Filtered out ${data.filtered_rows} row(s) with empty tasks</p>` : 
+                                    ''
+                                }
+                                
+                                <h6 class="mt-4">Generated Emails:</h6>
+                                <div class="accordion" id="emailAccordion">
+                                    ${data.generated_emails.map((item, index) => `
+                                        <div class="accordion-item">
+                                            <h2 class="accordion-header">
+                                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#email${index}">
+                                                    Task: ${item.task.substring(0, 50)}${item.task.length > 50 ? '...' : ''}
+                                                </button>
+                                            </h2>
+                                            <div id="email${index}" class="accordion-collapse collapse" data-bs-parent="#emailAccordion">
+                                                <div class="accordion-body">
+                                                    <div class="mb-3">
                                                         <p><strong>To:</strong> ${item.recipient} (${item.email})</p>
                                                         <p><strong>Subject:</strong> ${item.generated_email.subject}</p>
                                                         <p><strong>Tone:</strong> ${item.generated_email.tone}</p>
-                                                        <div class="card">
-                                                            <div class="card-body">
-                                                                ${item.generated_email.body.replace(/\n/g, '<br>')}
-                                                            </div>
+                                                    </div>
+                                                    <div class="card bg-dark">
+                                                        <div class="card-body">
+                                                            <pre class="mb-0" style="white-space: pre-wrap;">${item.generated_email.body}</pre>
                                                         </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                        `).join('')}
-                                    </div>
+                                        </div>
+                                    `).join('')}
                                 </div>
                             </div>
-                        `;
-                        resultDiv.innerHTML = html;
-                    }
-                } else {
-                    resultDiv.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+                        </div>
+                    `;
+                    resultDiv.innerHTML = html;
                 }
             } catch (error) {
-                resultDiv.innerHTML = `<div class="alert alert-danger">Error processing file: ${error.message}</div>`;
+                console.error('Error:', error);
+                resultDiv.innerHTML = `<div class="alert alert-danger">
+                    <h5 class="alert-heading">Error Processing File</h5>
+                    <p>${error.message || 'An unexpected error occurred. Please try again.'}</p>
+                </div>`;
+            } finally {
+                // Re-enable form
+                submitButton.disabled = false;
+                fileInput.disabled = false;
+                submitButton.innerHTML = 'Upload and Process';
+                
+                // Reset file input
+                fileInput.value = '';
             }
-            
-            // Reset file input
-            fileInput.value = '';
         });
     </script>
 </body>
