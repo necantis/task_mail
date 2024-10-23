@@ -4,7 +4,7 @@ from flask import Blueprint, request, jsonify, render_template
 import pandas as pd
 from werkzeug.utils import secure_filename
 from email_generator import generate_email_from_task
-from pdf_analyzer import analyze_pdf_document
+from pdf_analyzer import analyze_pdf_document, PDFAnalysisError
 from utils import send_email
 
 # Create a Blueprint for our routes
@@ -30,7 +30,6 @@ def validate_columns(df):
 def validate_email(email):
     if pd.isna(email):
         return False
-    # Basic email validation pattern
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     return re.match(pattern, str(email)) is not None
 
@@ -50,9 +49,17 @@ def clean_dataframe(df):
     # Validate email addresses on remaining rows
     invalid_emails = df[~df['E-mail'].apply(validate_email)].index.tolist()
     if invalid_emails:
-        raise ValueError(f"Invalid email addresses found in rows: {[i+2 for i in invalid_emails]}")  # +2 for Excel row numbers
+        raise ValueError(f"Invalid email addresses found in rows: {[i+2 for i in invalid_emails]}")
     
     return df, filtered_rows
+
+def cleanup_file(filepath):
+    """Safely clean up uploaded file."""
+    try:
+        if os.path.exists(filepath):
+            os.remove(filepath)
+    except Exception as e:
+        print(f"Warning: Failed to clean up file {filepath}: {str(e)}")
 
 @upload_bp.route('/')
 def index():
@@ -67,56 +74,75 @@ def upload_file():
     if not file or not file.filename:
         return jsonify({'error': 'No selected file'}), 400
     
-    if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
+    if not allowed_file(file.filename):
+        return jsonify({'error': 'Invalid file type'}), 400
+    
+    filename = secure_filename(file.filename)
+    filepath = os.path.join(UPLOAD_FOLDER, filename)
+    
+    try:
         file.save(filepath)
         
-        try:
-            if filename.lower().endswith('.pdf'):
-                # Handle PDF analysis
-                analysis_results = analyze_pdf_document(filepath)
+        if filename.lower().endswith('.pdf'):
+            try:
+                # Handle PDF analysis with improved error handling
+                analysis_results = analyze_pdf_document(open(filepath, 'rb'))
                 return jsonify({
                     'type': 'pdf_analysis',
                     'results': analysis_results
                 })
-            else:
+            except PDFAnalysisError as pe:
+                return jsonify({'error': str(pe)}), 400
+            except Exception as e:
+                return jsonify({'error': f'PDF analysis failed: {str(e)}'}), 500
+        else:
+            try:
                 # Handle Excel file
                 df = pd.read_excel(filepath)
                 validate_columns(df)
                 df = df[REQUIRED_COLUMNS]
                 df, filtered_rows = clean_dataframe(df)
                 
-                # Generate emails for each task
                 emails = []
                 for _, row in df.iterrows():
-                    email = generate_email_from_task(row['Task'], row['Recipient'])
-                    emails.append({
-                        'task': row['Task'],
-                        'recipient': row['Recipient'],
-                        'email': row['E-mail'],
-                        'generated_email': email
-                    })
+                    try:
+                        email = generate_email_from_task(
+                            task=str(row['Task']),
+                            recipient_name=str(row['Recipient'])
+                        )
+                        emails.append({
+                            'task': row['Task'],
+                            'recipient': row['Recipient'],
+                            'email': row['E-mail'],
+                            'generated_email': email
+                        })
+                    except Exception as e:
+                        print(f"Warning: Failed to generate email for task: {str(e)}")
+                        continue
                 
-                data = {
+                if not emails:
+                    raise ValueError("Failed to generate any emails from the Excel data")
+                
+                return jsonify({
                     'type': 'excel_processing',
                     'columns': REQUIRED_COLUMNS,
                     'rows': len(df),
                     'filtered_rows': filtered_rows,
                     'preview': df.head().to_dict('records'),
                     'generated_emails': emails
-                }
-                return jsonify(data)
-        except ValueError as ve:
-            return jsonify({'error': str(ve)}), 400
-        except Exception as e:
-            return jsonify({'error': f'Error processing file: {str(e)}'}), 500
-        finally:
-            # Clean up the uploaded file
-            if os.path.exists(filepath):
-                os.remove(filepath)
-    
-    return jsonify({'error': 'Invalid file type'}), 400
+                })
+            except pd.errors.EmptyDataError:
+                return jsonify({'error': 'The Excel file is empty'}), 400
+            except pd.errors.ParserError:
+                return jsonify({'error': 'Failed to parse Excel file. Please ensure it is a valid Excel file.'}), 400
+            except Exception as e:
+                return jsonify({'error': f'Excel processing failed: {str(e)}'}), 500
+                
+    except Exception as e:
+        return jsonify({'error': f'Error processing file: {str(e)}'}), 500
+    finally:
+        # Always clean up the uploaded file
+        cleanup_file(filepath)
 
 @upload_bp.route('/send-email', methods=['POST'])
 def send_single_email():
