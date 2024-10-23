@@ -3,13 +3,15 @@ import re
 from flask import Blueprint, request, jsonify, render_template
 import pandas as pd
 from werkzeug.utils import secure_filename
+from email_generator import generate_email_from_task
+from pdf_analyzer import analyze_pdf_document
 
 # Create a Blueprint for our routes
 upload_bp = Blueprint('upload', __name__)
 
 # Configure upload folder
 UPLOAD_FOLDER = 'uploads'
-ALLOWED_EXTENSIONS = {'xlsx', 'xls'}
+ALLOWED_EXTENSIONS = {'xlsx', 'xls', 'pdf'}
 REQUIRED_COLUMNS = ['Task', 'E-mail', 'Recipient']
 
 # Create uploads directory if it doesn't exist
@@ -70,26 +72,40 @@ def upload_file():
         file.save(filepath)
         
         try:
-            # Read Excel file
-            df = pd.read_excel(filepath)
-            
-            # Validate required columns
-            validate_columns(df)
-            
-            # Extract only required columns
-            df = df[REQUIRED_COLUMNS]
-            
-            # Clean and validate data
-            df, filtered_rows = clean_dataframe(df)
-            
-            # Extract basic information
-            data = {
-                'columns': REQUIRED_COLUMNS,
-                'rows': len(df),
-                'filtered_rows': filtered_rows,
-                'preview': df.head().to_dict('records')
-            }
-            return jsonify(data)
+            if filename.lower().endswith('.pdf'):
+                # Handle PDF analysis
+                analysis_results = analyze_pdf_document(filepath)
+                return jsonify({
+                    'type': 'pdf_analysis',
+                    'results': analysis_results
+                })
+            else:
+                # Handle Excel file
+                df = pd.read_excel(filepath)
+                validate_columns(df)
+                df = df[REQUIRED_COLUMNS]
+                df, filtered_rows = clean_dataframe(df)
+                
+                # Generate emails for each task
+                emails = []
+                for _, row in df.iterrows():
+                    email = generate_email_from_task(row['Task'], row['Recipient'])
+                    emails.append({
+                        'task': row['Task'],
+                        'recipient': row['Recipient'],
+                        'email': row['E-mail'],
+                        'generated_email': email
+                    })
+                
+                data = {
+                    'type': 'excel_processing',
+                    'columns': REQUIRED_COLUMNS,
+                    'rows': len(df),
+                    'filtered_rows': filtered_rows,
+                    'preview': df.head().to_dict('records'),
+                    'generated_emails': emails
+                }
+                return jsonify(data)
         except ValueError as ve:
             return jsonify({'error': str(ve)}), 400
         except Exception as e:
@@ -100,3 +116,15 @@ def upload_file():
                 os.remove(filepath)
     
     return jsonify({'error': 'Invalid file type'}), 400
+
+@upload_bp.route('/generate-email', methods=['POST'])
+def generate_email():
+    data = request.get_json()
+    if not data or 'task' not in data or 'recipient' not in data:
+        return jsonify({'error': 'Missing required fields'}), 400
+    
+    try:
+        email = generate_email_from_task(data['task'], data['recipient'])
+        return jsonify(email)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
