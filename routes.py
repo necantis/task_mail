@@ -1,4 +1,5 @@
 import os
+import re
 from flask import Blueprint, request, jsonify, render_template
 import pandas as pd
 from werkzeug.utils import secure_filename
@@ -23,6 +24,28 @@ def validate_columns(df):
         raise ValueError(f"Missing required columns: {', '.join(missing_columns)}")
     return True
 
+def validate_email(email):
+    if pd.isna(email):
+        return False
+    # Basic email validation pattern
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(pattern, str(email)) is not None
+
+def clean_dataframe(df):
+    # Replace NaN values with empty strings
+    df = df.fillna('')
+    
+    # Validate email addresses
+    invalid_emails = df[~df['E-mail'].apply(validate_email)].index.tolist()
+    if invalid_emails:
+        raise ValueError(f"Invalid email addresses found in rows: {[i+2 for i in invalid_emails]}")  # +2 for Excel row numbers
+    
+    # Convert all values to strings and strip whitespace
+    for col in df.columns:
+        df[col] = df[col].astype(str).str.strip()
+    
+    return df
+
 @upload_bp.route('/')
 def index():
     return render_template('upload.html')
@@ -33,16 +56,16 @@ def upload_file():
         return jsonify({'error': 'No file part'}), 400
     
     file = request.files['file']
-    if file.filename == '':
+    if not file or file.filename == '':
         return jsonify({'error': 'No selected file'}), 400
     
     if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
+        filename = secure_filename(file.filename or '')
         filepath = os.path.join(UPLOAD_FOLDER, filename)
         file.save(filepath)
         
-        # Process Excel file
         try:
+            # Read Excel file
             df = pd.read_excel(filepath)
             
             # Validate required columns
@@ -50,6 +73,9 @@ def upload_file():
             
             # Extract only required columns
             df = df[REQUIRED_COLUMNS]
+            
+            # Clean and validate data
+            df = clean_dataframe(df)
             
             # Extract basic information
             data = {

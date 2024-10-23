@@ -11,10 +11,13 @@
             <div class="card-body">
                 <p class="text-muted">Please upload an Excel file (.xlsx, .xls) containing the following columns:</p>
                 <ul class="text-muted">
-                    <li>Task - The task description</li>
-                    <li>E-mail - The email content</li>
-                    <li>Recipient - The recipient's email address</li>
+                    <li><strong>Task</strong> - The task description or details</li>
+                    <li><strong>E-mail</strong> - The recipient's email address (must be a valid email format)</li>
+                    <li><strong>Recipient</strong> - The recipient's full name</li>
                 </ul>
+                <div class="alert alert-info">
+                    <strong>Note:</strong> Make sure all email addresses are valid and there are no empty cells in required columns.
+                </div>
                 <form id="uploadForm" enctype="multipart/form-data">
                     <div class="mb-3">
                         <label for="file" class="form-label">Choose Excel file</label>
@@ -70,7 +73,7 @@
                                         <tbody>
                                             ${data.preview.map(row => `
                                                 <tr>
-                                                    ${data.columns.map(col => `<td>${row[col]}</td>`).join('')}
+                                                    ${data.columns.map(col => `<td>${row[col] || ''}</td>`).join('')}
                                                 </tr>
                                             `).join('')}
                                         </tbody>
