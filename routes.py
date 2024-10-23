@@ -5,6 +5,7 @@ import pandas as pd
 from werkzeug.utils import secure_filename
 from email_generator import generate_email_from_task
 from pdf_analyzer import analyze_pdf_document
+from utils import send_email
 
 # Create a Blueprint for our routes
 upload_bp = Blueprint('upload', __name__)
@@ -116,6 +117,20 @@ def upload_file():
                 os.remove(filepath)
     
     return jsonify({'error': 'Invalid file type'}), 400
+
+@upload_bp.route('/send-email', methods=['POST'])
+def send_single_email():
+    try:
+        data = request.get_json()
+        if not data or not all(key in data for key in ['email', 'subject', 'body']):
+            return jsonify({'error': 'Missing required fields'}), 400
+        
+        send_email(data['email'], data['subject'], data['body'])
+        return jsonify({'message': 'Email sent successfully'})
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': f'Failed to send email: {str(e)}'}), 500
 
 @upload_bp.route('/generate-email', methods=['POST'])
 def generate_email():
