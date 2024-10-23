@@ -35,16 +35,21 @@ def clean_dataframe(df):
     # Replace NaN values with empty strings
     df = df.fillna('')
     
-    # Validate email addresses
-    invalid_emails = df[~df['E-mail'].apply(validate_email)].index.tolist()
-    if invalid_emails:
-        raise ValueError(f"Invalid email addresses found in rows: {[i+2 for i in invalid_emails]}")  # +2 for Excel row numbers
-    
     # Convert all values to strings and strip whitespace
     for col in df.columns:
         df[col] = df[col].astype(str).str.strip()
     
-    return df
+    # Filter out rows with empty tasks
+    original_rows = len(df)
+    df = df[df['Task'].str.len() > 0]
+    filtered_rows = original_rows - len(df)
+    
+    # Validate email addresses on remaining rows
+    invalid_emails = df[~df['E-mail'].apply(validate_email)].index.tolist()
+    if invalid_emails:
+        raise ValueError(f"Invalid email addresses found in rows: {[i+2 for i in invalid_emails]}")  # +2 for Excel row numbers
+    
+    return df, filtered_rows
 
 @upload_bp.route('/')
 def index():
@@ -56,11 +61,11 @@ def upload_file():
         return jsonify({'error': 'No file part'}), 400
     
     file = request.files['file']
-    if not file or file.filename == '':
+    if not file or not file.filename:
         return jsonify({'error': 'No selected file'}), 400
     
     if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename or '')
+        filename = secure_filename(file.filename)
         filepath = os.path.join(UPLOAD_FOLDER, filename)
         file.save(filepath)
         
@@ -75,12 +80,13 @@ def upload_file():
             df = df[REQUIRED_COLUMNS]
             
             # Clean and validate data
-            df = clean_dataframe(df)
+            df, filtered_rows = clean_dataframe(df)
             
             # Extract basic information
             data = {
                 'columns': REQUIRED_COLUMNS,
                 'rows': len(df),
+                'filtered_rows': filtered_rows,
                 'preview': df.head().to_dict('records')
             }
             return jsonify(data)

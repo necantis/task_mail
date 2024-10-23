@@ -11,12 +11,17 @@
             <div class="card-body">
                 <p class="text-muted">Please upload an Excel file (.xlsx, .xls) containing the following columns:</p>
                 <ul class="text-muted">
-                    <li><strong>Task</strong> - The task description or details</li>
+                    <li><strong>Task</strong> - The task description or details (required, cannot be empty)</li>
                     <li><strong>E-mail</strong> - The recipient's email address (must be a valid email format)</li>
                     <li><strong>Recipient</strong> - The recipient's full name</li>
                 </ul>
                 <div class="alert alert-info">
-                    <strong>Note:</strong> Make sure all email addresses are valid and there are no empty cells in required columns.
+                    <strong>Note:</strong>
+                    <ul class="mb-0">
+                        <li>All email addresses must be valid</li>
+                        <li>Rows with empty tasks will be automatically filtered out</li>
+                        <li>All required fields must be filled</li>
+                    </ul>
                 </div>
                 <form id="uploadForm" enctype="multipart/form-data">
                     <div class="mb-3">
@@ -61,8 +66,12 @@
                         <div class="card">
                             <div class="card-body">
                                 <h5 class="card-title">File Analysis</h5>
-                                <p>Total Tasks: ${data.rows}</p>
-                                <h6>Preview:</h6>
+                                <p>Valid Tasks: ${data.rows}</p>
+                                ${data.filtered_rows > 0 ? 
+                                    `<p class="text-warning">Filtered out ${data.filtered_rows} row(s) with empty tasks</p>` : 
+                                    ''
+                                }
+                                <h6>Preview of Valid Tasks:</h6>
                                 <div class="table-responsive">
                                     <table class="table table-striped">
                                         <thead>
