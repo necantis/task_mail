@@ -1,14 +1,20 @@
 <!DOCTYPE html>
 <html data-bs-theme="dark">
 <head>
-    <title>Excel File Upload</title>
+    <title>Task Upload</title>
     <link rel="stylesheet" href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css">
 </head>
 <body>
     <div class="container mt-5">
-        <h2>Upload Excel File</h2>
-        <div class="card">
+        <h2>Upload Task Excel File</h2>
+        <div class="card mb-4">
             <div class="card-body">
+                <p class="text-muted">Please upload an Excel file (.xlsx, .xls) containing the following columns:</p>
+                <ul class="text-muted">
+                    <li>Task - The task description</li>
+                    <li>E-mail - The email content</li>
+                    <li>Recipient - The recipient's email address</li>
+                </ul>
                 <form id="uploadForm" enctype="multipart/form-data">
                     <div class="mb-3">
                         <label for="file" class="form-label">Choose Excel file</label>
@@ -31,9 +37,16 @@
             const fileInput = document.getElementById('file');
             const resultDiv = document.getElementById('result');
             
+            if (!fileInput.files || !fileInput.files[0]) {
+                resultDiv.innerHTML = `<div class="alert alert-danger">Please select a file first</div>`;
+                return;
+            }
+            
             formData.append('file', fileInput.files[0]);
             
             try {
+                resultDiv.innerHTML = `<div class="alert alert-info">Processing file...</div>`;
+                
                 const response = await fetch('/upload', {
                     method: 'POST',
                     body: formData
@@ -45,11 +58,10 @@
                         <div class="card">
                             <div class="card-body">
                                 <h5 class="card-title">File Analysis</h5>
-                                <p>Columns: ${data.columns.join(', ')}</p>
-                                <p>Total Rows: ${data.rows}</p>
+                                <p>Total Tasks: ${data.rows}</p>
                                 <h6>Preview:</h6>
                                 <div class="table-responsive">
-                                    <table class="table">
+                                    <table class="table table-striped">
                                         <thead>
                                             <tr>
                                                 ${data.columns.map(col => `<th>${col}</th>`).join('')}
@@ -74,6 +86,9 @@
             } catch (error) {
                 resultDiv.innerHTML = `<div class="alert alert-danger">Error uploading file: ${error.message}</div>`;
             }
+            
+            // Reset file input
+            fileInput.value = '';
         });
     </script>
 </body>
