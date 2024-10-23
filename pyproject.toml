@@ -19,4 +19,5 @@ dependencies = [
     "google-auth>=2.35.0",
     "werkzeug",
     "sqlalchemy",
+    "pandas",
 ]
