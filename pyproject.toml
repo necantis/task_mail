@@ -21,4 +21,6 @@ dependencies = [
     "sqlalchemy",
     "pandas",
     "reportlab",
+    "requests",
+    "pillow",
 ]
